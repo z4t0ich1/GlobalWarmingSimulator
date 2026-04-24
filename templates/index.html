@@ -27,33 +27,33 @@
       </p>
     </header>
 
-      <section class="controls">
-        <div class="toggle-group">
-          <button id="annualButton" class="toggle-button active" type="button">
-            Annual
-          </button>
-          <button id="monthlyButton" class="toggle-button" type="button">
-            Monthly
-          </button>
-        </div>
+    <section class="controls">
+      <div class="toggle-group">
+        <button id="annualButton" class="toggle-button active" type="button">
+          Annual
+        </button>
+        <button id="monthlyButton" class="toggle-button" type="button">
+          Monthly
+        </button>
+      </div>
 
-        <label class="slider-group" for="yearSlider">
-          <span>Year: <strong id="yearValue">{{ annual_selected_year }}</strong></span>
-          <input id="yearSlider" type="range" min="{{ annual_min_year }}" max="{{ annual_max_year }}" step="1"
-            value="{{ annual_selected_year }}" />
-        </label>
+      <label class="slider-group" for="yearSlider">
+        <span>Year: <strong id="yearValue">{{ annual_selected_year }}</strong></span>
+        <input id="yearSlider" type="range" min="{{ annual_min_year }}" max="{{ annual_max_year }}" step="1"
+          value="{{ annual_selected_year }}" />
+      </label>
 
-        <label class="month-group hidden" for="monthSelect" id="monthGroup">
-          <span>Month</span>
-          <select id="monthSelect">
-            {% for month in monthly_months %}
-            <option value="{{ month.value }}" {% if month.value == monthly_selected_month %}selected{% endif %}>
-              {{ month.label }}
-            </option>
-            {% endfor %}
-          </select>
-        </label>
-      </section>
+      <label class="month-group hidden" for="monthSelect" id="monthGroup">
+        <span>Month</span>
+        <select id="monthSelect">
+          {% for month in monthly_months %}
+          <option value="{{ month.value }}" {% if month.value==monthly_selected_month %}selected{% endif %}>
+            {{ month.label }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+    </section>
 
     <section class="map-section">
       <div id="map"></div>
@@ -84,17 +84,17 @@
   <script>
     window.EARTHPULSE_CONFIG = {
       annual: {
-        selectedYear: {{ annual_selected_year }},
-        minYear: {{ annual_min_year }},
-        maxYear: {{ annual_max_year }}
+        selectedYear: "{{ annual_selected_year }}",
+        minYear: "{{ annual_min_year }}",
+        maxYear: "{{ annual_max_year }}"
       },
       monthly: {
-        selectedYear: {{ monthly_selected_year }},
+        selectedYear: "{{ monthly_selected_year }}",
         selectedMonth: "{{ monthly_selected_month }}",
-        minYear: {{ monthly_min_year }},
-        maxYear: {{ monthly_max_year }},
-        months: {{ monthly_months | tojson }},
-        availableMonthsByYear: {{ monthly_available_months | tojson }}
+        minYear: "{{ monthly_min_year }}",
+        maxYear: "{{ monthly_max_year }}",
+        months: "{{ monthly_months | tojson }}",
+        availableMonthsByYear: "{{ monthly_available_months | tojson }}"
       },
       geoJsonUrl: "{{ url_for('data_file', filename='world-countries.geojson') }}",
       mapDataUrl: "{{ url_for('map_data') }}",
