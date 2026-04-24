@@ -46,7 +46,7 @@ GWS/
 
 ## Run
 
-goto:
+goto: https://earthpulse-3sr4.onrender.com/
 
 ## Data source
 
@@ -73,22 +73,6 @@ Boundary file:
 
 The easiest temporary public URL for this app is Render.
 
-This repo now includes [render.yaml](/Users/kirill/development/projects/GWS/render.yaml), so the basic flow is:
+This repo includes [render.yaml](.../GWS/render.yaml)
 
-```bash
-git init
-git add .
-git commit -m "GWS"
-```
-
-Then:
-
-1. Push the project to GitHub.
-2. In Render, create a new Web Service from that repo.
-3. Render will read `render.yaml`.
-4. After the first deploy, Render gives you a public `onrender.com` URL.
-
-If you prefer to configure it manually in Render, use:
-
-- Build Command: `pip install -r requirements.txt`
-- Start Command: `gunicorn app:app`
+Then the repo is being hosten on render.
