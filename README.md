@@ -4,7 +4,7 @@ Global Warming Simulator is a very simple one-page climate change visualization.
 
 It shows:
 
-- a world choropleth map
+- a world leaflet map
 - a year slider
 - an annual/monthly toggle
 - a month selector in monthly mode
