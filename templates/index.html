@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EarthPulse</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+
+<body>
+  <div class="background-bubbles">
+    <div class="bubble bubble-one"></div>
+    <div class="bubble bubble-two"></div>
+    <div class="bubble bubble-three"></div>
+    <div class="bubble bubble-four"></div>
+  </div>
+
+  <main class="page">
+    <header class="header">
+      <div class="app-chip">Climate Surface</div>
+      <h1>EarthPulse</h1>
+      <p class="subtitle">
+        Country-level temperature anomaly map using Our World in Data annual and monthly data.
+      </p>
+    </header>
+
+      <section class="controls">
+        <div class="toggle-group">
+          <button id="annualButton" class="toggle-button active" type="button">
+            Annual
+          </button>
+          <button id="monthlyButton" class="toggle-button" type="button">
+            Monthly
+          </button>
+        </div>
+
+        <label class="slider-group" for="yearSlider">
+          <span>Year: <strong id="yearValue">{{ annual_selected_year }}</strong></span>
+          <input id="yearSlider" type="range" min="{{ annual_min_year }}" max="{{ annual_max_year }}" step="1"
+            value="{{ annual_selected_year }}" />
+        </label>
+
+        <label class="month-group hidden" for="monthSelect" id="monthGroup">
+          <span>Month</span>
+          <select id="monthSelect">
+            {% for month in monthly_months %}
+            <option value="{{ month.value }}" {% if month.value == monthly_selected_month %}selected{% endif %}>
+              {{ month.label }}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+      </section>
+
+    <section class="map-section">
+      <div id="map"></div>
+
+      <aside class="info-panel">
+        <h2>Country Info</h2>
+        <p><span>Name:</span> <strong id="countryName">Hover over a country</strong></p>
+        <p><span>Anomaly:</span> <strong id="anomalyValue">--</strong></p>
+        <p><span>Period:</span> <strong id="infoPeriod">{{ annual_selected_year }}</strong></p>
+        <p class="note">Click a country to keep its info visible.</p>
+      </aside>
+    </section>
+
+    <section class="legend">
+      <span>Colder</span>
+      <div class="legend-bar"></div>
+      <span>Warmer</span>
+    </section>
+
+    <footer class="footer">
+      Source: Our World in Data annual and monthly temperature anomaly datasets.
+      Country boundaries from <a href="https://github.com/johan/world.geo.json">johan/world.geo.json</a>.
+    </footer>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    window.EARTHPULSE_CONFIG = {
+      annual: {
+        selectedYear: {{ annual_selected_year }},
+        minYear: {{ annual_min_year }},
+        maxYear: {{ annual_max_year }}
+      },
+      monthly: {
+        selectedYear: {{ monthly_selected_year }},
+        selectedMonth: "{{ monthly_selected_month }}",
+        minYear: {{ monthly_min_year }},
+        maxYear: {{ monthly_max_year }},
+        months: {{ monthly_months | tojson }},
+        availableMonthsByYear: {{ monthly_available_months | tojson }}
+      },
+      geoJsonUrl: "{{ url_for('data_file', filename='world-countries.geojson') }}",
+      mapDataUrl: "{{ url_for('map_data') }}",
+      countryUrlBase: "/api/country/"
+    };
+  </script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>
