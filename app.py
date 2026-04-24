@@ -9,65 +9,69 @@ from flask import Flask, jsonify, render_template, request, send_from_directory
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
+DEFAULT_MODE = "annual"
 
 
 def load_json(filename: str) -> dict:
-    data_path = DATA_DIR / filename
-    with data_path.open() as file:
+    with (DATA_DIR / filename).open() as file:
         return json.load(file)
 
 
-ANNUAL_DATA = load_json("annual-temperature-anomalies.json")
-MONTHLY_DATA = load_json("monthly-temperature-anomalies.json")
-
+annual_data = load_json("annual-temperature-anomalies.json")
+monthly_data = load_json("monthly-temperature-anomalies.json")
 
 app = Flask(__name__)
 
 
-def get_mode_data(mode: str) -> dict:
-    if mode == "monthly":
-        return MONTHLY_DATA
-    return ANNUAL_DATA
+def normalize_mode(mode: str | None) -> str:
+    return "monthly" if mode == "monthly" else DEFAULT_MODE
 
 
-def get_country_record(mode: str, country_code: str) -> dict | None:
-    return get_mode_data(mode)["countries"].get(country_code)
+def data_for_mode(mode: str) -> dict:
+    return monthly_data if mode == "monthly" else annual_data
 
 
-def get_latest_year(mode: str) -> int:
-    data = get_mode_data(mode)
+def latest_year(mode: str) -> int:
+    data = data_for_mode(mode)
     if mode == "monthly":
         return int(data["latest"]["year"])
     return int(data["years"][-1])
 
 
-def get_latest_month() -> str:
-    return str(MONTHLY_DATA["latest"]["month"])
+def latest_month() -> str:
+    return monthly_data["latest"]["month"]
 
 
-def get_available_months(year: int) -> list[str]:
-    return MONTHLY_DATA["availableMonthsByYear"].get(str(year), [])
+def months_for_year(year: int) -> list[str]:
+    return monthly_data["availableMonthsByYear"].get(str(year), [])
 
 
 def normalize_month(year: int, month: str | None) -> str:
-    available_months = get_available_months(year)
-    if not available_months:
-        return get_latest_month()
-    if month in available_months:
-        return str(month)
-    return available_months[-1]
+    available = months_for_year(year)
+    if not available:
+        return latest_month()
+    if month in available:
+        return month
+    return available[-1]
 
 
-def get_anomaly(mode: str, country_code: str, year: int, month: str | None = None) -> float | None:
-    # The anomaly value already comes from the Our World in Data dataset.
-    record = get_country_record(mode, country_code)
+def country_record(mode: str, country_code: str) -> dict | None:
+    return data_for_mode(mode)["countries"].get(country_code)
+
+
+def anomaly_value(
+    mode: str,
+    country_code: str,
+    year: int,
+    month: str | None = None,
+) -> float | None:
+    record = country_record(mode, country_code)
     if not record:
         return None
 
     key = str(year)
     if mode == "monthly":
-        normalized_month = normalize_month(year, month)
-        key = f"{year}-{normalized_month}"
+        key = f"{year}-{normalize_month(year, month)}"
 
     value = record["values"].get(key)
     if isinstance(value, (int, float)):
@@ -75,27 +79,41 @@ def get_anomaly(mode: str, country_code: str, year: int, month: str | None = Non
     return None
 
 
-def build_map(mode: str, year: int, month: str | None = None) -> dict[str, float | None]:
-    # Build one simple mapping for the selected period.
+def map_values(
+    mode: str, year: int, month: str | None = None
+) -> dict[str, float | None]:
     return {
-        country_code: get_anomaly(mode, country_code, year, month)
-        for country_code in get_mode_data(mode)["countries"]
+        country_code: anomaly_value(mode, country_code, year, month)
+        for country_code in data_for_mode(mode)["countries"]
     }
+
+
+def read_period() -> tuple[str, int, str | None]:
+    mode = normalize_mode(request.args.get("mode", type=str))
+    year = request.args.get("year", default=latest_year(mode), type=int)
+
+    if mode == "monthly":
+        month = normalize_month(
+            year, request.args.get("month", default=latest_month(), type=str)
+        )
+        return mode, year, month
+
+    return mode, year, None
 
 
 @app.route("/")
 def index():
     return render_template(
         "index.html",
-        annual_min_year=ANNUAL_DATA["years"][0],
-        annual_max_year=ANNUAL_DATA["years"][-1],
-        annual_selected_year=ANNUAL_DATA["years"][-1],
-        monthly_min_year=MONTHLY_DATA["years"][0],
-        monthly_max_year=MONTHLY_DATA["latest"]["year"],
-        monthly_selected_year=MONTHLY_DATA["latest"]["year"],
-        monthly_selected_month=MONTHLY_DATA["latest"]["month"],
-        monthly_months=MONTHLY_DATA["months"],
-        monthly_available_months=MONTHLY_DATA["availableMonthsByYear"],
+        annual_min_year=annual_data["years"][0],
+        annual_max_year=annual_data["years"][-1],
+        annual_selected_year=annual_data["years"][-1],
+        monthly_min_year=monthly_data["years"][0],
+        monthly_max_year=monthly_data["latest"]["year"],
+        monthly_selected_year=monthly_data["latest"]["year"],
+        monthly_selected_month=monthly_data["latest"]["month"],
+        monthly_months=monthly_data["months"],
+        monthly_available_months=monthly_data["availableMonthsByYear"],
     )
 
 
@@ -103,9 +121,9 @@ def index():
 def years():
     return jsonify(
         {
-            "annualYears": ANNUAL_DATA["years"],
-            "monthlyYears": MONTHLY_DATA["years"],
-            "monthlyAvailableMonthsByYear": MONTHLY_DATA["availableMonthsByYear"],
+            "annualYears": annual_data["years"],
+            "monthlyYears": monthly_data["years"],
+            "monthlyAvailableMonthsByYear": monthly_data["availableMonthsByYear"],
         }
     )
 
@@ -117,49 +135,43 @@ def data_file(filename: str):
 
 @app.route("/api/map-data")
 def map_data():
-    mode = request.args.get("mode", default="annual", type=str)
-    year = request.args.get("year", default=get_latest_year(mode), type=int)
-    month = request.args.get("month", default=get_latest_month(), type=str)
-    normalized_month = normalize_month(year, month) if mode == "monthly" else None
-
+    mode, year, month = read_period()
     return jsonify(
         {
             "mode": mode,
             "year": year,
-            "month": normalized_month,
-            "anomalies": build_map(mode, year, normalized_month),
+            "month": month,
+            "anomalies": map_values(mode, year, month),
         }
     )
 
 
 @app.route("/api/country/<country_code>")
 def country(country_code: str):
-    mode = request.args.get("mode", default="annual", type=str)
-    year = request.args.get("year", default=get_latest_year(mode), type=int)
-    month = request.args.get("month", default=get_latest_month(), type=str)
-    normalized_month = normalize_month(year, month) if mode == "monthly" else None
-    record = get_country_record(mode, country_code.upper())
+    mode, year, month = read_period()
+    country_code = country_code.upper()
+    record = country_record(mode, country_code)
 
     if not record:
         return jsonify(
             {
-                "code": country_code.upper(),
+                "code": country_code,
                 "name": "No matching data",
                 "mode": mode,
                 "year": year,
-                "month": normalized_month,
+                "month": month,
                 "anomaly": None,
             }
         )
 
     return jsonify(
         {
-            "code": country_code.upper(),
+            "code": country_code,
             "name": record["name"],
             "mode": mode,
             "year": year,
-            "month": normalized_month,
-            "anomaly": get_anomaly(mode, country_code.upper(), year, normalized_month),
+            "month": month,
+            "anomaly": anomaly_value(mode, country_code, year, month),
         }
     )
 

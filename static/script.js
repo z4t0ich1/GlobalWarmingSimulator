@@ -8,12 +8,15 @@ const monthlyButton = document.getElementById("monthlyButton");
 const monthGroup = document.getElementById("monthGroup");
 const monthSelect = document.getElementById("monthSelect");
 
-let selectedMode = "annual";
-let selectedYear = window.EARTHPULSE_CONFIG.annual.selectedYear;
-let selectedMonth = window.EARTHPULSE_CONFIG.monthly.selectedMonth;
-let lockedCountryCode = null;
+const configElement = document.getElementById("gws-config");
+const config = JSON.parse(configElement.textContent);
+
+let mode = "annual";
+let year = config.annual.selectedYear;
+let month = config.monthly.selectedMonth;
+let lockedCountry = null;
 let geoJsonLayer = null;
-let anomalyByCountry = {};
+let anomalies = {};
 
 const map = L.map("map", {
   zoomControl: true,
@@ -21,90 +24,90 @@ const map = L.map("map", {
   worldCopyJump: false,
 });
 
-function getColor(anomaly) {
-  // Turn the anomaly number into a choropleth color.
-  if (anomaly === null || anomaly === undefined) {
-    return "#222222";
-  }
-  if (anomaly < -1.5) return "#2c7bb6";
-  if (anomaly < -0.5) return "#74add1";
-  if (anomaly < 0.5) return "#ffffbf";
-  if (anomaly < 1.5) return "#fdae61";
+function getColor(value) {
+  if (value === null || value === undefined) return "#222222";
+  if (value < -1.5) return "#2c35b6";
+  if (value < -0.5) return "#23a2f0";
+  if (value < 0.5) return "#ffff5e";
+  if (value < 1.5) return "#ff9c39";
   return "#d7191c";
 }
 
-function formatAnomaly(anomaly) {
-  if (anomaly === null || anomaly === undefined) {
-    return "No data";
+function formatAnomaly(value) {
+  if (value === null || value === undefined) return "No data";
+  return `${value.toFixed(2)} °C`;
+}
+
+function monthLabel(value) {
+  const item = config.monthly.months.find((entry) => entry.value === value);
+  return item ? item.label : value;
+}
+
+function formatPeriod() {
+  return mode === "monthly" ? `${monthLabel(month)} ${year}` : String(year);
+}
+
+function monthsForYear(selectedYear) {
+  return config.monthly.availableMonthsByYear[String(selectedYear)] || [];
+}
+
+function clampYear(nextMode, nextYear) {
+  const range = config[nextMode];
+  return Math.min(Math.max(nextYear, range.minYear), range.maxYear);
+}
+
+function apiUrl(path, params = {}) {
+  const url = new URL(path, window.location.origin);
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== "") {
+      url.searchParams.set(key, value);
+    }
   }
-  return `${anomaly.toFixed(2)} °C`;
+
+  return url;
 }
 
-function getMonthLabel(monthValue) {
-  const month = window.EARTHPULSE_CONFIG.monthly.months.find((item) => item.value === monthValue);
-  return month ? month.label : monthValue;
-}
+function updateMonthSelect() {
+  const available = monthsForYear(year);
 
-function formatPeriodLabel() {
-  if (selectedMode === "monthly") {
-    return `${getMonthLabel(selectedMonth)} ${selectedYear}`;
-  }
-  return String(selectedYear);
-}
-
-function getAvailableMonthsForYear(year) {
-  return window.EARTHPULSE_CONFIG.monthly.availableMonthsByYear[String(year)] || [];
-}
-
-function clampYearForMode(mode, year) {
-  const modeConfig = window.EARTHPULSE_CONFIG[mode];
-  return Math.min(Math.max(year, modeConfig.minYear), modeConfig.maxYear);
-}
-
-function syncMonthOptions() {
-  const availableMonths = getAvailableMonthsForYear(selectedYear);
-
-  if (availableMonths.length === 0) {
+  if (available.length === 0) {
     monthSelect.innerHTML = "";
-    selectedMonth = window.EARTHPULSE_CONFIG.monthly.selectedMonth;
     return;
   }
 
-  if (!availableMonths.includes(selectedMonth)) {
-    selectedMonth = availableMonths[availableMonths.length - 1];
+  if (!available.includes(month)) {
+    month = available[available.length - 1];
   }
 
   monthSelect.innerHTML = "";
 
-  window.EARTHPULSE_CONFIG.monthly.months.forEach((month) => {
-    if (!availableMonths.includes(month.value)) {
-      return;
-    }
+  for (const item of config.monthly.months) {
+    if (!available.includes(item.value)) continue;
 
     const option = document.createElement("option");
-    option.value = month.value;
-    option.textContent = month.label;
-    option.selected = month.value === selectedMonth;
+    option.value = item.value;
+    option.textContent = item.label;
+    option.selected = item.value === month;
     monthSelect.appendChild(option);
-  });
+  }
 }
 
-function setSliderRange() {
-  const modeConfig = window.EARTHPULSE_CONFIG[selectedMode];
-  yearSlider.min = modeConfig.minYear;
-  yearSlider.max = modeConfig.maxYear;
-  yearSlider.value = selectedYear;
-  yearValue.textContent = String(selectedYear);
-}
+function updateControls() {
+  const range = config[mode];
 
-function updateModeControls() {
-  annualButton.classList.toggle("active", selectedMode === "annual");
-  monthlyButton.classList.toggle("active", selectedMode === "monthly");
-  monthGroup.classList.toggle("hidden", selectedMode !== "monthly");
+  yearSlider.min = range.minYear;
+  yearSlider.max = range.maxYear;
+  yearSlider.value = year;
+  yearValue.textContent = String(year);
+
+  annualButton.classList.toggle("active", mode === "annual");
+  monthlyButton.classList.toggle("active", mode === "monthly");
+  monthGroup.classList.toggle("hidden", mode !== "monthly");
 }
 
 function updateInfoPanel(data) {
-  infoPeriod.textContent = formatPeriodLabel();
+  infoPeriod.textContent = formatPeriod();
 
   if (!data) {
     countryName.textContent = "Hover over a country";
@@ -116,20 +119,23 @@ function updateInfoPanel(data) {
   anomalyValue.textContent = formatAnomaly(data.anomaly);
 }
 
-async function fetchCountryInfo(countryCode) {
-  const monthParam = selectedMode === "monthly" ? `&month=${selectedMonth}` : "";
+async function fetchCountry(countryCode) {
   const response = await fetch(
-    `${window.EARTHPULSE_CONFIG.countryUrlBase}${countryCode}?mode=${selectedMode}&year=${selectedYear}${monthParam}`,
+    apiUrl(`${config.countryUrlBase}${countryCode}`, {
+      mode,
+      year,
+      month: mode === "monthly" ? month : null,
+    }),
   );
+
   return response.json();
 }
 
-function resetFeatureStyle(layer) {
-  const countryCode = layer.feature.id;
-  const anomaly = anomalyByCountry[countryCode] ?? null;
+function setFeatureStyle(layer) {
+  const value = anomalies[layer.feature.id] ?? null;
 
   layer.setStyle({
-    fillColor: getColor(anomaly),
+    fillColor: getColor(value),
     weight: 1,
     opacity: 1,
     color: "#333333",
@@ -137,15 +143,13 @@ function resetFeatureStyle(layer) {
   });
 }
 
-function refreshMapStyles() {
-  if (!geoJsonLayer) {
-    return;
-  }
+function refreshMap() {
+  if (!geoJsonLayer) return;
 
   geoJsonLayer.eachLayer((layer) => {
-    resetFeatureStyle(layer);
+    setFeatureStyle(layer);
 
-    if (layer.feature.id === lockedCountryCode) {
+    if (layer.feature.id === lockedCountry) {
       layer.setStyle({
         weight: 2,
         color: "#ffffff",
@@ -154,27 +158,42 @@ function refreshMapStyles() {
   });
 }
 
-async function loadMapData() {
-  // Ask the Python app for anomaly values for the selected year.
-  const monthParam = selectedMode === "monthly" ? `&month=${selectedMonth}` : "";
+async function fetchMapData() {
   const response = await fetch(
-    `${window.EARTHPULSE_CONFIG.mapDataUrl}?mode=${selectedMode}&year=${selectedYear}${monthParam}`,
+    apiUrl(config.mapDataUrl, {
+      mode,
+      year,
+      month: mode === "monthly" ? month : null,
+    }),
   );
+
   const data = await response.json();
-  anomalyByCountry = data.anomalies;
-  if (selectedMode === "monthly" && data.month) {
-    selectedMonth = data.month;
-    syncMonthOptions();
+  anomalies = data.anomalies;
+
+  if (mode === "monthly" && data.month) {
+    month = data.month;
+    updateMonthSelect();
   }
-  refreshMapStyles();
+
+  refreshMap();
+}
+
+async function refreshSelection() {
+  await fetchMapData();
+
+  if (!lockedCountry) {
+    updateInfoPanel(null);
+    return;
+  }
+
+  updateInfoPanel(await fetchCountry(lockedCountry));
 }
 
 function createGeoJsonLayer(worldGeoJson) {
   geoJsonLayer = L.geoJSON(worldGeoJson, {
     style(feature) {
-      const anomaly = anomalyByCountry[feature.id] ?? null;
       return {
-        fillColor: getColor(anomaly),
+        fillColor: getColor(anomalies[feature.id] ?? null),
         weight: 1,
         opacity: 1,
         color: "#333333",
@@ -188,27 +207,25 @@ function createGeoJsonLayer(worldGeoJson) {
           color: "#ffffff",
         });
 
-        if (!lockedCountryCode) {
-          const data = await fetchCountryInfo(feature.id);
-          updateInfoPanel(data);
+        if (!lockedCountry) {
+          updateInfoPanel(await fetchCountry(feature.id));
         }
       });
 
       layer.on("mouseout", () => {
-        if (lockedCountryCode !== feature.id) {
-          resetFeatureStyle(layer);
+        if (lockedCountry !== feature.id) {
+          setFeatureStyle(layer);
         }
 
-        if (!lockedCountryCode) {
+        if (!lockedCountry) {
           updateInfoPanel(null);
         }
       });
 
       layer.on("click", async () => {
-        lockedCountryCode = feature.id;
-        refreshMapStyles();
-        const data = await fetchCountryInfo(feature.id);
-        updateInfoPanel(data);
+        lockedCountry = feature.id;
+        refreshMap();
+        updateInfoPanel(await fetchCountry(feature.id));
       });
     },
   }).addTo(map);
@@ -219,76 +236,45 @@ function createGeoJsonLayer(worldGeoJson) {
 }
 
 async function loadPage() {
-  const geoJsonResponse = await fetch(window.EARTHPULSE_CONFIG.geoJsonUrl);
-  const worldGeoJson = await geoJsonResponse.json();
+  updateMonthSelect();
+  updateControls();
 
-  syncMonthOptions();
-  setSliderRange();
-  updateModeControls();
-  await loadMapData();
+  const response = await fetch(config.geoJsonUrl);
+  const worldGeoJson = await response.json();
+
+  await fetchMapData();
   createGeoJsonLayer(worldGeoJson);
 }
 
 yearSlider.addEventListener("input", async (event) => {
-  selectedYear = Number(event.target.value);
-  yearValue.textContent = String(selectedYear);
+  year = Number(event.target.value);
+  yearValue.textContent = String(year);
 
-  if (selectedMode === "monthly") {
-    syncMonthOptions();
+  if (mode === "monthly") {
+    updateMonthSelect();
   }
 
-  await loadMapData();
-
-  if (lockedCountryCode) {
-    const data = await fetchCountryInfo(lockedCountryCode);
-    updateInfoPanel(data);
-  } else {
-    updateInfoPanel(null);
-  }
+  await refreshSelection();
 });
 
 monthSelect.addEventListener("change", async (event) => {
-  selectedMonth = event.target.value;
-  await loadMapData();
-
-  if (lockedCountryCode) {
-    const data = await fetchCountryInfo(lockedCountryCode);
-    updateInfoPanel(data);
-  } else {
-    updateInfoPanel(null);
-  }
+  month = event.target.value;
+  await refreshSelection();
 });
 
-annualButton.addEventListener("click", () => {
-  selectedMode = "annual";
-  selectedYear = clampYearForMode("annual", selectedYear);
-  setSliderRange();
-  updateModeControls();
-  loadMapData().then(async () => {
-    if (lockedCountryCode) {
-      const data = await fetchCountryInfo(lockedCountryCode);
-      updateInfoPanel(data);
-    } else {
-      updateInfoPanel(null);
-    }
-  });
+annualButton.addEventListener("click", async () => {
+  mode = "annual";
+  year = clampYear("annual", year);
+  updateControls();
+  await refreshSelection();
 });
 
-monthlyButton.addEventListener("click", () => {
-  selectedMode = "monthly";
-  selectedYear = clampYearForMode("monthly", selectedYear);
-  selectedMonth = selectedMonth || window.EARTHPULSE_CONFIG.monthly.selectedMonth;
-  syncMonthOptions();
-  setSliderRange();
-  updateModeControls();
-  loadMapData().then(async () => {
-    if (lockedCountryCode) {
-      const data = await fetchCountryInfo(lockedCountryCode);
-      updateInfoPanel(data);
-    } else {
-      updateInfoPanel(null);
-    }
-  });
+monthlyButton.addEventListener("click", async () => {
+  mode = "monthly";
+  year = clampYear("monthly", year);
+  updateMonthSelect();
+  updateControls();
+  await refreshSelection();
 });
 
 loadPage().catch((error) => {

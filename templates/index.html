@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EarthPulse</title>
+  <title>Global Warming Simulator</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
@@ -20,10 +20,11 @@
 
   <main class="page">
     <header class="header">
-      <div class="app-chip">Climate Surface</div>
-      <h1>EarthPulse</h1>
+      <div class="app-chip">Climate Change</div>
+      <h1>Global Warming Simulator</h1>
       <p class="subtitle">
-        Country-level temperature anomaly map using Our World in Data annual and monthly data.
+        Interactive map to show how temperature was changing at every country
+        annualy and monthly. Every anomaly is colored depending on the temperature change.
       </p>
     </header>
 
@@ -74,32 +75,33 @@
     </section>
 
     <footer class="footer">
-      Source: Our World in Data annual and monthly temperature anomaly datasets.
-      Country boundaries from <a href="https://github.com/johan/world.geo.json">johan/world.geo.json</a>.
+      Source:
+      <a href="https://ourworldindata.org/">Our World in Data</a>
+      annual and monthly temperature anomaly datasets.
     </footer>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script>
-    window.EARTHPULSE_CONFIG = {
-      annual: {
-        selectedYear: "{{ annual_selected_year }}",
-        minYear: "{{ annual_min_year }}",
-        maxYear: "{{ annual_max_year }}"
+  <script id="gws-config" type="application/json">
+    {{ {
+      "annual": {
+        "selectedYear": annual_selected_year,
+        "minYear": annual_min_year,
+        "maxYear": annual_max_year
       },
-      monthly: {
-        selectedYear: "{{ monthly_selected_year }}",
-        selectedMonth: "{{ monthly_selected_month }}",
-        minYear: "{{ monthly_min_year }}",
-        maxYear: "{{ monthly_max_year }}",
-        months: "{{ monthly_months | tojson }}",
-        availableMonthsByYear: "{{ monthly_available_months | tojson }}"
+      "monthly": {
+        "selectedYear": monthly_selected_year,
+        "selectedMonth": monthly_selected_month,
+        "minYear": monthly_min_year,
+        "maxYear": monthly_max_year,
+        "months": monthly_months,
+        "availableMonthsByYear": monthly_available_months
       },
-      geoJsonUrl: "{{ url_for('data_file', filename='world-countries.geojson') }}",
-      mapDataUrl: "{{ url_for('map_data') }}",
-      countryUrlBase: "/api/country/"
-    };
+      "geoJsonUrl": url_for('data_file', filename='world-countries.geojson'),
+      "mapDataUrl": url_for('map_data'),
+      "countryUrlBase": "/api/country/"
+    } | tojson }}
   </script>
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

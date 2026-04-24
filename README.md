@@ -1,6 +1,6 @@
-# EarthPulse
+# Global Warming Simulator (GWS)
 
-EarthPulse is a very simple single-page climate visualization.
+Global Warming Simulator is a very simple one-page climate change visualization.
 
 It shows:
 
@@ -11,13 +11,13 @@ It shows:
 - a small info panel for country data
 - a simple legend
 
-## Simplest architecture
+## Simple architecture
 
-This project now uses a tiny Python web app:
+My project uses a Python web app:
 
 - `app.py` for the server, anomaly lookup, and JSON API
 - `templates/index.html` for the page structure
-- `static/styles.css` for the layout and black theme
+- `static/styles.css` for the layout and theme
 - `static/script.js` for the minimal browser-side map code
 - `data/annual-temperature-anomalies.json` as a local processed copy of the Our World in Data annual dataset
 - `data/monthly-temperature-anomalies.json` as a local processed copy of the Our World in Data monthly dataset
@@ -34,7 +34,7 @@ Why this is simple:
 ## File tree
 
 ```text
-EarthPulse/
+GWS/
   app.py
   README.md
   requirements.txt
@@ -91,12 +91,12 @@ Boundary file:
 
 The easiest temporary public URL for this app is Render.
 
-This repo now includes [render.yaml](/Users/kirill/development/projects/EarthPulse/render.yaml), so the basic flow is:
+This repo now includes [render.yaml](/Users/kirill/development/projects/GWS/render.yaml), so the basic flow is:
 
 ```bash
 git init
 git add .
-git commit -m "EarthPulse"
+git commit -m "GWS"
 ```
 
 Then:
