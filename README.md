@@ -17,19 +17,12 @@ My project uses a Python web app:
 
 - `app.py` for the server, anomaly lookup, and JSON API
 - `templates/index.html` for the page structure
-- `static/styles.css` for the layout and theme
+- `static/styles.css` for the layout and ecofriendly theme
 - `static/script.js` for the minimal browser-side map code
 - `data/annual-temperature-anomalies.json` as a local processed copy of the Our World in Data annual dataset
 - `data/monthly-temperature-anomalies.json` as a local processed copy of the Our World in Data monthly dataset
 - `data/world-countries.geojson` as the local country boundary file
 
-Why this is simple:
-
-- one small Python app
-- no database
-- no build step
-- Python handles the data lookup logic
-- JavaScript only handles the Leaflet map UI
 
 ## File tree
 
@@ -53,18 +46,7 @@ GWS/
 
 ## Run
 
-Install the one Python dependency and run the app:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
-
-Then open:
-
-`http://127.0.0.1:8000`
+goto:
 
 ## Data source
 
