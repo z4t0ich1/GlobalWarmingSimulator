@@ -61,13 +61,6 @@ Boundary file:
 
 - `https://github.com/johan/world.geo.json`
 
-## Notes
-
-- The anomaly lookup now lives in Python in `app.py`.
-- The browser asks Flask for year data and country info through `/api/map-data` and `/api/country/<code>`.
-- Monthly mode uses the same map and info panel, with a month dropdown shown only when monthly is active.
-- The map joins data to countries using ISO3 country codes.
-- If port `8000` is busy, you can run `PORT=8080 python app.py` and open `http://127.0.0.1:8080`.
 
 ## Deploy
 
